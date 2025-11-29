@@ -1,5 +1,6 @@
 package org.example.presentation.routes
 
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -12,12 +13,32 @@ fun Route.vehicleRoutes() {
 
     route("/vehicles") {
 
+        // POST /vehicles -> Daftarkan kendaraan baru (Manual/Admin)
         post {
-            val req = call.receive<VehicleCreateRequest>()
-            val created = service.create(req)
-            call.respond(created)
+            try {
+                val req = call.receive<VehicleCreateRequest>()
+
+                val created = service.create(req)
+
+                // REVISI 1: Gunakan status 201 Created
+                call.respond(HttpStatusCode.Created, created)
+
+            } catch (e: IllegalArgumentException) {
+                // REVISI 2: Tangkap error validasi (Plat Kembar / Salah Tipe)
+                // Pesan error dari Service ("Kendaraan sudah terdaftar!") akan dikirim ke sini
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to (e.message ?: "Invalid request"))
+                )
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    mapOf("error" to "Gagal mendaftarkan kendaraan")
+                )
+            }
         }
 
+        // GET /vehicles -> List semua kendaraan
         get {
             val list = service.list()
             call.respond(list)

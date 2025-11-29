@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking System</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="SB-Mid-client-GANTI_KEY_INI_DENGAN_PUNYA_ANDA"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; padding: 20px; }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        .container { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; }
+
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); width: 320px; }
+        .card h3 { margin-top: 0; color: #34495e; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        input, select, button { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; }
+        button { border: none; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; }
+
+        .btn-in { background-color: #27ae60; } .btn-in:hover { background-color: #219150; }
+        .btn-out { background-color: #e74c3c; } .btn-out:hover { background-color: #c0392b; }
+        .btn-refresh { background-color: #3498db; margin-top: 20px;}
+
+        .parking-lot { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
+        .spot {
+            height: 110px; border-radius: 10px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; font-weight: bold; color: white;
+            text-align: center; position: relative;
+        }
+        .available { background: linear-gradient(135deg, #2ecc71, #27ae60); box-shadow: 0 4px 6px rgba(46, 204, 113, 0.3); }
+        .occupied { background: linear-gradient(135deg, #e74c3c, #c0392b); box-shadow: 0 4px 6px rgba(231, 76, 60, 0.3); }
+
+        .spot .type { font-size: 10px; opacity: 0.8; margin-top: 5px; }
+        .spot .plate { background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<h1>🚗 Smart Parking System (Midtrans)</h1>
+
+<div class="container">
+    <div class="card">
+        <h3>🟢 Gate IN (Masuk)</h3>
+        <input type="text" id="inPlat" placeholder="Plat Nomor (Misal: B 1234 XY)">
+        <select id="inType">
+            <option value="CAR">Mobil (CAR)</option>
+            <option value="MOTORCYCLE">Motor (MOTORCYCLE)</option>
+        </select>
+        <button class="btn-in" onclick="gateIn()">Cetak Tiket Masuk</button>
+    </div>
+
+    <div class="card" style="width: 500px;">
+        <h3>🗺️ Denah Parkir</h3>
+        <div id="parkingGrid" class="parking-lot"><p>Memuat data...</p></div>
+        <button class="btn-refresh" onclick="loadSpots()">Refresh Denah</button>
+    </div>
+
+    <div class="card">
+        <h3>🔴 Gate OUT (Keluar)</h3>
+        <p style="font-size: 0.9em; color: #666;">Masukkan plat nomor untuk pembayaran.</p>
+        <input type="text" id="outPlat" placeholder="Cari Plat Nomor...">
+        <button class="btn-out" onclick="gateOut()">Bayar via Midtrans</button>
+    </div>
+</div>
+
+<script>
+    const API = "http://localhost:8081";
+
+    // Helper: Format Waktu Indonesia
+    const formatWaktu = (isoString) => {
+        if(!isoString) return "-";
+        return new Date(isoString).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    // Helper: Format Rupiah
+    const formatRupiah = (angka) => {
+        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+    }
+
+    async function loadSpots() {
+        try {
+            const res = await fetch(`${API}/spots`);
+            const spots = await res.json();
+            const grid = document.getElementById('parkingGrid');
+            grid.innerHTML = "";
+            spots.forEach(s => {
+                const div = document.createElement('div');
+                div.className = `spot ${s.isAvailable ? 'available' : 'occupied'}`;
+                const platInfo = s.activePlate ? `<div class="plate">${s.activePlate}</div>` : '';
+                div.innerHTML = `<div style="font-size:1.2em">${s.spotNumber}</div><div class="type">${s.spotType}</div>${platInfo}`;
+                grid.appendChild(div);
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    // --- GATE IN: TIKET MASUK LENGKAP ---
+    async function gateIn() {
+        const plat = document.getElementById('inPlat').value.toUpperCase();
+        const typeSelect = document.getElementById('inType');
+        const typeVal = typeSelect.value;
+        const typeText = typeSelect.options[typeSelect.selectedIndex].text; // Ambil teks "Mobil (CAR)"
+
+        if(!plat) return Swal.fire('Error', 'Plat nomor wajib diisi!', 'warning');
+
+        try {
+            const res = await fetch(`${API}/logs/check-in`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ platNomor: plat, vehicleType: typeVal })
+            });
+
+            if(res.ok) {
+                const data = await res.json();
+
+                // TAMPILAN TIKET LENGKAP
+                await Swal.fire({
+                    title: '🎫 TIKET PARKIR MASUK',
+                    html: `
+                            <div style="text-align: left; font-family: monospace; background: #fffbe6; padding: 15px; border: 2px dashed #333;">
+                                <h3 style="margin:0; text-align:center; border-bottom: 1px solid #000; padding-bottom: 5px;">SMART PARKING</h3>
+                                <p style="margin: 5px 0;"><strong>No. Tiket :</strong> #${data.id}</p>
+                                <p style="margin: 5px 0;"><strong>Plat Nomor:</strong> ${plat}</p>
+                                <p style="margin: 5px 0;"><strong>Kendaraan :</strong> ${typeText}</p>
+                                <p style="margin: 5px 0;"><strong>Lokasi    :</strong> Slot ${data.spotId}</p>
+                                <p style="margin: 5px 0;"><strong>Jam Masuk :</strong> ${formatWaktu(data.entryTime)}</p>
+                                <hr style="border-top: 1px solid #000;">
+                                <p style="text-align:center; font-size: 0.8em; margin:0;">Jangan tinggalkan tiket ini di kendaraan.</p>
+                            </div>
+                        `,
+                    icon: 'success',
+                    confirmButtonText: 'Cetak & Masuk'
+                });
+
+                document.getElementById('inPlat').value = "";
+                loadSpots();
+            } else {
+                const err = await res.json();
+                Swal.fire('Gagal', err.error, 'error');
+            }
+        } catch(e) { Swal.fire('Error', 'Gagal koneksi', 'error'); }
+    }
+
+    // --- GATE OUT: MIDTRANS + STRUK KELUAR LENGKAP ---
+    async function gateOut() {
+        const plat = document.getElementById('outPlat').value.toUpperCase();
+        if(!plat) return Swal.fire('Error', 'Plat nomor wajib diisi!', 'warning');
+
+        try {
+            // 1. Minta Token
+            const resToken = await fetch(`${API}/logs/pay-midtrans`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ platNomor: plat })
+            });
+
+            if(!resToken.ok) {
+                const err = await resToken.json();
+                return Swal.fire('Gagal', err.error || "Gagal ambil token", 'error');
+            }
+
+            const dataToken = await resToken.json();
+            const snapToken = dataToken.token;
+
+            // 2. Buka Midtrans
+            window.snap.pay(snapToken, {
+                onSuccess: async function(result){
+                    // 3. Finalisasi & TAMPILKAN STRUK KELUAR
+                    await finalizeCheckout(plat, result);
+                },
+                onPending: function(result){ Swal.fire('Pending', 'Menunggu pembayaran...', 'info'); },
+                onError: function(result){ Swal.fire('Error', 'Pembayaran gagal!', 'error'); }
+            });
+
+        } catch(e) { Swal.fire('Error', 'Koneksi error', 'error'); }
+    }
+
+    async function finalizeCheckout(plat, midtransResult) {
+        try {
+            const res = await fetch(`${API}/logs/check-out-by-plate`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ platNomor: plat })
+            });
+
+            if(res.ok) {
+                const data = await res.json();
+                const feeRupiah = formatRupiah(data.fee);
+
+                // TAMPILAN STRUK KELUAR LENGKAP
+                await Swal.fire({
+                    title: '✅ PEMBAYARAN LUNAS',
+                    html: `
+                            <div style="text-align: left; font-family: monospace; background: #e8f5e9; padding: 15px; border: 1px solid #2e7d32;">
+                                <h3 style="margin:0; text-align:center; color: #1b5e20;">STRUK PEMBAYARAN</h3>
+                                <hr>
+                                <p><strong>Plat Nomor :</strong> ${plat}</p>
+                                <p><strong>Jam Masuk  :</strong> ${formatWaktu(data.entryTime)}</p>
+                                <p><strong>Jam Keluar :</strong> ${formatWaktu(data.exitTime)}</p>
+                                <hr>
+                                <div style="display:flex; justify-content:space-between; font-size:1.2em; font-weight:bold;">
+                                    <span>TOTAL</span>
+                                    <span>${feeRupiah}</span>
+                                </div>
+                                <hr>
+                                <p style="font-size:0.8em; text-align:center;">Metode: ${midtransResult.payment_type.toUpperCase()}</p>
+                                <p style="font-size:0.8em; text-align:center;">Status: ${midtransResult.transaction_status.toUpperCase()}</p>
+                            </div>
+                        `,
+                    icon: 'success',
+                    confirmButtonText: 'Buka Palang'
+                });
+
+                document.getElementById('outPlat').value = "";
+                loadSpots();
+            }
+        } catch(e) { Swal.fire('Warning', 'Bayar sukses tapi gagal update DB', 'warning'); }
+    }
+
+    loadSpots();
+</script>
+</body>
+</html>

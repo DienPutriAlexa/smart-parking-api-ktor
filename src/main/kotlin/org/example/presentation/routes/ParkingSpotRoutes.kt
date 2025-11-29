@@ -1,9 +1,9 @@
 package org.example.presentation.routes
 
-
 import io.ktor.http.*
 import io.ktor.server.application.*
-import io.ktor.server.request.*
+import io.ktor.server.request.receive
+import io.ktor.server.request.receive
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import org.example.domain.models.ParkingSpotCreateRequest
@@ -14,19 +14,25 @@ fun Route.parkingSpotRoutes() {
 
     route("/spots") {
 
-        // GET /spots
+        // GET /spots -> List semua slot
         get {
             val spots = service.list()
             call.respond(spots)
         }
 
-        // POST /spots
+        // POST /spots -> Tambah slot baru (Admin)
+        // JSON Input: { "spotNumber": "A1", "floorId": 1, "spotType": "CAR" }
         post {
             try {
+                // KEMBALI KE STANDARD (Generics)
+                // Karena import request sudah benar, ini aman.
                 val req = call.receive<ParkingSpotCreateRequest>()
+
                 val created = service.create(req)
                 call.respond(HttpStatusCode.Created, created)
+
             } catch (e: IllegalArgumentException) {
+                // Menangkap error validasi dari Service (misal: Salah tipe, nomor kosong)
                 call.respond(
                     HttpStatusCode.BadRequest,
                     mapOf("error" to (e.message ?: "Invalid request"))
@@ -39,7 +45,7 @@ fun Route.parkingSpotRoutes() {
             }
         }
 
-        // PATCH /spots/{id}/availability?available=true|false
+        // PATCH /spots/{id}/availability -> Manual Override (Admin Maintenance)
         patch("/{id}/availability") {
             val id = call.parameters["id"]?.toLongOrNull()
             val availableParam = call.request.queryParameters["available"]

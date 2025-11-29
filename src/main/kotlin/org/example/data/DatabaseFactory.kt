@@ -1,10 +1,12 @@
 package org.example.data
 
-
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.config.*
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.example.data.tables.* // Import semua tabel kita
 
 object DatabaseFactory {
     fun init(config: ApplicationConfig) {
@@ -26,5 +28,17 @@ object DatabaseFactory {
         }
 
         Database.connect(HikariDataSource(hikariConfig))
+
+        // --- TAMBAHAN PENTING ---
+        // Ini akan otomatis membuat tabel di database jika belum ada.
+        transaction {
+            SchemaUtils.create(
+                ParkingFloorsTable,
+                ParkingSpotsTable,
+                VehicleTable,
+                ParkingLogsTable
+            )
+        }
+        // ------------------------
     }
 }
