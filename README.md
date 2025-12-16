@@ -6,6 +6,39 @@ Dilengkapi dengan **Web Dashboard (Frontend)** untuk simulasi *Manless Gate* dan
 
 ---
 
+# 👥 Pembagian Tugas Kelompok
+## Anggota 1 – Dien Putri Alexa
+
+- Mendesain arsitektur backend REST API menggunakan Ktor + Kotlin
+
+- Membuat database schema dan integrasi MariaDB dengan Exposed ORM
+
+- Mengimplementasikan endpoint CRUD Parking Spot, Vehicle, dan Parking Log
+
+- Mengelola business logic check-in dan check-out parkir (status spot, durasi, fee)
+
+- Menyusun struktur project, konfigurasi server, dan dokumentasi API (README)
+
+- Melakukan testing endpoint menggunakan Postman
+
+## Anggota 2 – Fikri Zaini
+
+- Membuat dan mempercantik tampilan web (HTML)
+
+- Melakukan testing dan finalisasi project
+
+- Melakukan testing endpoint menggunakan Postman
+
+## Anggota 3 – Ardiansyah Desta
+
+- Membuat Class Diagram
+
+- Membuat Use Case Diagram
+
+## Anggota 4 – Ariyq
+
+- Menyusun laporan akhir project
+
 ## 🌟 1. Fitur Unggulan (Smart Features)
 
 Bukan sekadar CRUD biasa, sistem ini memiliki logika cerdas:
